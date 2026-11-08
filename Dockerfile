@@ -1,5 +1,5 @@
 # ---------- Stage 1: build the jar ----------
-FROM maven:3.9-eclipse-temurin-25 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 WORKDIR /workspace
 
 # Copy the pom first and download dependencies in their own layer. As long as pom.xml doesn't
