@@ -1,0 +1,5 @@
+# Consistent line endings on every OS (avoids whole-file diffs from CRLF/LF changes)
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.jar binary
+*.p12 binary
