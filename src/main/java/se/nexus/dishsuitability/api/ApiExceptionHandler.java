@@ -154,14 +154,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
     return property
         .map(s -> validationProblem(Map.of(s, s + " has an invalid value")))
-        .orElseGet(
-            () ->
-                ResponseEntity.badRequest()
-                    .body(
-                        problem(
-                            HttpStatus.BAD_REQUEST,
-                            "Malformed request",
-                            "Request body is missing or is not valid JSON")));
+        .orElseGet(() ->
+            ResponseEntity.badRequest()
+                .body(
+                    problem(
+                        HttpStatus.BAD_REQUEST,
+                        "Malformed request",
+                        "Request body is missing or is not valid JSON")));
   }
 
   @ExceptionHandler(ApiKeyAuthenticationException.class)

@@ -40,10 +40,9 @@ class DishSuitabilityServiceTest {
 
   @Test
   void failsFastWhenADishHasNoScorer() {
-    assertThatThrownBy(
-            () ->
-                new DishSuitabilityService(
-                    List.of(fixedScorer(Dish.PANCAKES, 1), fixedScorer(Dish.CHICKEN, 2))))
+    assertThatThrownBy(() ->
+            new DishSuitabilityService(
+                List.of(fixedScorer(Dish.PANCAKES, 1), fixedScorer(Dish.CHICKEN, 2))))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("No scorer registered for")
         .hasMessageContaining("ICE_CREAM");
@@ -51,14 +50,13 @@ class DishSuitabilityServiceTest {
 
   @Test
   void failsFastWhenADishHasTwoScorers() {
-    assertThatThrownBy(
-            () ->
-                new DishSuitabilityService(
-                    List.of(
-                        fixedScorer(Dish.PANCAKES, 1),
-                        fixedScorer(Dish.PANCAKES, 9),
-                        fixedScorer(Dish.CHICKEN, 2),
-                        fixedScorer(Dish.ICE_CREAM, 3))))
+    assertThatThrownBy(() ->
+            new DishSuitabilityService(
+                List.of(
+                    fixedScorer(Dish.PANCAKES, 1),
+                    fixedScorer(Dish.PANCAKES, 9),
+                    fixedScorer(Dish.CHICKEN, 2),
+                    fixedScorer(Dish.ICE_CREAM, 3))))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("More than one scorer registered for PANCAKES");
   }

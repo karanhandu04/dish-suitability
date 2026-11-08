@@ -29,8 +29,8 @@
              validation bypass via 0x1A) in json-smart <= 2.6.0. -->
         <json-smart.version>2.6.1</json-smart.version>
         <openapi-generator.version>7.27.0</openapi-generator.version>
-        <spotless.version>2.46.1</spotless.version>
-        <google-java-format.version>1.28.0</google-java-format.version>
+        <spotless.version>3.11.0</spotless.version>
+        <google-java-format.version>2.0.0</google-java-format.version>
     </properties>
 
     <dependencies>
@@ -150,6 +150,8 @@
                                 <openApiNullable>false</openApiNullable>
                                 <documentationProvider>none</documentationProvider>
                                 <annotationLibrary>none</annotationLibrary>
+                                <!-- Null handling stays with Bean Validation (@NotNull) so errors keep readable messages -->
+                                <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
                             </configOptions>
                         </configuration>
                     </execution>
