@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Maven dependencies and plugins (including the version overrides in pom.xml)
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+    labels: [dependencies]
+
+  # Base images in the Dockerfile (maven, eclipse-temurin)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+
+  # Versions of actions used in the CI workflow
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]

@@ -1,0 +1,27 @@
+# HTTPS profile, activated by docker-compose (SPRING_PROFILES_ACTIVE=tls).
+#
+# The certificate is never baked into the image or committed: it is read from a keystore file
+# whose location and password come from the environment. Locally, docker-compose generates a
+# self-signed one; in production it would come from a secret store (e.g. Kubernetes secret or
+# Azure Key Vault) or TLS would terminate at the ingress instead.
+server:
+  port: ${SERVER_PORT:8443}
+  ssl:
+    bundle: server
+    enabled-protocols: TLSv1.3,TLSv1.2
+  http2:
+    enabled: true
+
+spring:
+  ssl:
+    bundle:
+      jks:
+        server:
+          # Picks up a renewed certificate without restarting the application.
+          reload-on-update: true
+          key:
+            alias: ${TLS_KEY_ALIAS:dish-suitability}
+          keystore:
+            location: file:${TLS_KEYSTORE_PATH:/certs/keystore.p12}
+            password: ${TLS_KEYSTORE_PASSWORD}
+            type: PKCS12

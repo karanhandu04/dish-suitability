@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: dish-suitability
+  # The generated API interface is @Validated, so header constraints are checked by a validation
+  # proxy. This makes it report failures as MethodValidationException (with per-parameter details)
+  # instead of ConstraintViolationException; ApiExceptionHandler turns them into a 400.
+  validation:
+    method:
+      adapt-constraint-violations: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  # Finish in-flight requests before stopping (matters for rolling deployments)
+  shutdown: graceful
+
+# API keys are never stored in this file. Provide them as a comma-separated environment variable:
+#   APP_SECURITY_API_KEYS=key-one,key-two
+# The application refuses to start without at least one key.
+# For local development, run with the "local" profile (see application-local.yml).
+
+# Health endpoint served by Spring Boot Actuator.
+# Base path "/" maps it to GET /health (instead of /actuator/health) as the assignment asks.
+# Only "health" is exposed over HTTP; details are hidden.
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    se.nexus.dishsuitability: ${APP_LOG_LEVEL:INFO}
+  # Adds the request id and channel (from the MDC, set by RequestCorrelationFilter) to every line
+  # written while handling a request; lines outside a request (e.g. startup) get no extra text.
+  pattern:
+    level: "%5p%replace( [requestId=%X{requestId} channel=%X{channel}]){' \\[requestId= channel=\\]', ''}"

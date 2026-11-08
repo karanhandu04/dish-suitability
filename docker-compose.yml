@@ -1,0 +1,49 @@
+services:
+  # One-off job that creates a self-signed certificate for localhost in ./certs on first start,
+  # so `docker-compose up` serves HTTPS with no manual steps. It reuses an existing certificate.
+  # In production the certificate would be issued by a CA and come from a secret store instead.
+  certs:
+    image: eclipse-temurin:25-jre-alpine
+    volumes:
+      - ./certs:/certs
+    environment:
+      TLS_KEYSTORE_PASSWORD: ${TLS_KEYSTORE_PASSWORD:-changeit}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ -f /certs/keystore.p12 ]; then
+          echo "Using the existing certificate in ./certs"
+          exit 0
+        fi
+        keytool -genkeypair -alias dish-suitability \
+          -keyalg EC -groupname secp256r1 -sigalg SHA256withECDSA -validity 365 \
+          -dname "CN=localhost" -ext "SAN=dns:localhost,ip:127.0.0.1" \
+          -keystore /certs/keystore.p12 -storetype PKCS12 -storepass "$$TLS_KEYSTORE_PASSWORD"
+        keytool -exportcert -rfc -alias dish-suitability \
+          -keystore /certs/keystore.p12 -storepass "$$TLS_KEYSTORE_PASSWORD" -file /certs/cert.pem
+        # Readable by the non-root user the application runs as (local demo only)
+        chmod 644 /certs/keystore.p12 /certs/cert.pem
+        echo "Created a self-signed certificate in ./certs (cert.pem can be used with curl --cacert)"
+
+  dish-suitability:
+    build: .
+    image: dish-suitability:local
+    container_name: dish-suitability
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    ports:
+      - "8443:8443"
+    environment:
+      SPRING_PROFILES_ACTIVE: tls
+      TLS_KEYSTORE_PATH: /certs/keystore.p12
+      TLS_KEYSTORE_PASSWORD: ${TLS_KEYSTORE_PASSWORD:-changeit}
+      # Demo key for local use. Override with: APP_SECURITY_API_KEYS=my-key docker-compose up
+      APP_SECURITY_API_KEYS: ${APP_SECURITY_API_KEYS:-local-dev-key}
+      HEALTHCHECK_URL: https://localhost:8443/health
+      APP_LOG_LEVEL: INFO
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+    volumes:
+      - ./certs:/certs:ro
+    restart: unless-stopped

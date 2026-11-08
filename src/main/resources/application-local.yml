@@ -1,0 +1,8 @@
+# Local development only: `mvn spring-boot:run -Dspring-boot.run.profiles=local`
+app:
+  security:
+    api-keys: local-dev-key
+
+logging:
+  level:
+    se.nexus.dishsuitability: DEBUG

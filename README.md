@@ -210,8 +210,10 @@ Java records rather than Lombok `@Value`: the language feature does the job.
   without a restart. In production the certificate would be CA-issued and come from a secret
   store, or TLS would terminate at the ingress.
 - **API key authentication** (`X-API-Key`) in a servlet filter, **secure by default**: every
-  path is protected except `/health` and the published contract, so a new endpoint can't be
-  left open by accident.
+  path is protected except an explicit allowlist (`/health`, `/health/liveness`,
+  `/health/readiness` and `/openapi/dish-suitability.yaml`), matched exactly rather than by
+  prefix. A new endpoint can't be left open by accident, and a crafted path such as
+  `/health/../dish-suitability` is never treated as public.
   - Several keys can be valid at once (`APP_SECURITY_API_KEYS=key-one,key-two`), so a key can
     be rotated without downtime.
   - Keys are compared as SHA-256 hashes in **constant time** (`MessageDigest.isEqual`), so
@@ -221,6 +223,11 @@ Java records rather than Lombok `@Value`: the language feature does the job.
   - A plain filter is enough for a shared-key scheme. For OAuth2 / JWT I would use Spring
     Security's resource server support instead.
 - **No internals in errors:** a 500 never contains the exception message.
+- **Patched dependencies:** `pom.xml` overrides the Jackson, Logback and json-smart versions
+  managed by Spring Boot to pick up fixes for known CVEs, and replaces the unmaintained
+  `android-json` test dependency. Each override is commented with its CVE, and should be removed
+  once a Spring Boot release includes the fix. Dependabot keeps dependencies, base images and
+  CI actions up to date (`.github/dependabot.yml`).
 
 ### Logging and traceability
 
@@ -284,7 +291,7 @@ The assignment leaves the scores open; these reflect typical eating habits.
 |-------|------|----------|
 | Unit (domain) | Scoring rules and value objects, plain JUnit, no Spring | `TimeWindowTest`, `ScoreTest`, `PancakesScorerTest`, `AllScorersContractTest` |
 | Unit (service) | Scorer selection and startup validation | `DishSuitabilityServiceTest` |
-| Unit (web) | Request id / channel handling and log-injection protection; contract ↔ domain mapping | `RequestCorrelationFilterTest`, `DishMappingTest` |
+| Unit (web) | Public-path allowlist, request id / channel handling and log-injection protection, contract ↔ domain mapping | `ApiKeyAuthenticationFilterTest`, `RequestCorrelationFilterTest`, `DishMappingTest` |
 | Web slice | HTTP behaviour against the contract: authentication, headers, status codes, validation, error format (service mocked) | `DishSuitabilityControllerTest` (`@WebMvcTest`) |
 | Integration | Whole application on a random port, real HTTP (`RestTestClient`), health and published spec | `DishSuitabilityApplicationIT` |
 
@@ -295,6 +302,8 @@ Notable tests:
 - **Every dish in the API contract maps to the domain** (`@EnumSource` over the generated enum).
 - **Security**: missing/invalid keys, key rotation, a forged `X-Request-ID` containing a newline,
   and a 500 that never contains the internal exception message.
+- **Auth bypass attempts**: look-alike paths (`/healthz`, `/health/../dish-suitability`,
+  `/openapi/%2e%2e/...`) are never treated as public.
 
 Unit tests run with `mvn test` (Surefire). Integration tests (`*IT`) run with `mvn verify`
 (Failsafe), so the fast feedback loop stays fast.
@@ -311,7 +320,7 @@ this service:
 ```
  Pull request ──▶ Build & test ──▶ Image build ──▶ Smoke test      (no deploy)
 
- Merge to main ─▶ Build & test ──▶ Image build ──▶ Smoke test ──▶ Push image (tag = git SHA)
+ Merge to master ─▶ Build & test ──▶ Image build ──▶ Smoke test ──▶ Push image (tag = git SHA)
                                                                     │
                      ┌──────────────────────────────────────────────┘
                      ▼
@@ -327,12 +336,12 @@ this service:
 **Continuous integration (on every pull request)**
 1. `mvn verify`: generate code from the spec (an invalid spec fails the build), compile, unit
    tests, integration tests, formatting check.
-2. Quality gates (to add): static analysis (e.g. SonarQube), dependency vulnerability scan
-   (e.g. OWASP Dependency-Check or Dependabot), and an image scan (e.g. Trivy).
+2. Quality gates: Dependabot for dependency, base-image and CI-action updates (included), plus
+   static analysis (e.g. SonarQube) and an image scan (e.g. Trivy) to add.
 3. Build the Docker image and smoke test the real container. The pull request can't be merged
    unless everything passes.
 
-**Continuous delivery (on merge to main)**
+**Continuous delivery (on merge to master)**
 1. Build the image **once**, tag it with the git commit SHA, and push it to a registry
    (GHCR here; Azure Container Registry or ECR in a cloud setup).
 2. Promote the **same image** through dev → staging → prod. Only configuration changes between
@@ -375,7 +384,7 @@ and tagged per commit, a rollback is a one-line change and takes seconds.
 ## What I would add next
 
 - **Swagger UI** in docker-compose (the `swaggerapi/swagger-ui` image pointed at the spec), and
-  a **breaking-change check** in CI that compares the spec against `main` (e.g. `oasdiff`).
+  a **breaking-change check** in CI that compares the spec against `master` (e.g. `oasdiff`).
 - **Metrics and tracing:** Micrometer metrics (request count/latency per dish and channel)
   exposed for Prometheus, and OpenTelemetry tracing propagating the request id.
 - **Rate limiting per API key**, and one named key per calling system so the logs show which

@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.2</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>se.nexus</groupId>
+    <artifactId>dish-suitability</artifactId>
+    <version>1.0.0</version>
+    <name>dish-suitability</name>
+    <description>Scores how suitable a dish is for a given time of day</description>
+
+    <properties>
+        <java.version>25</java.version>
+        <!-- Override Spring Boot's managed Logback to patch CVE-2026-19880 (path traversal,
+             CWE-22) in logback-classic < 1.6.3. Pins both logback-classic and logback-core. -->
+        <logback.version>1.6.3</logback.version>
+        <!-- Override Spring Boot's managed Jackson 3 BOM to patch CVE-2026-110879 (critical,
+             CWE-502 deserialization RCE) in jackson-databind 3.x < 3.1.8. -->
+        <jackson-bom.version>3.1.8</jackson-bom.version>
+        <!-- Override Spring Boot's managed json-smart to patch CVE-2026-113602 (strict-mode
+             validation bypass via 0x1A) in json-smart <= 2.6.0. -->
+        <json-smart.version>2.6.1</json-smart.version>
+        <openapi-generator.version>7.20.0</openapi-generator.version>
+        <spotless.version>2.46.1</spotless.version>
+        <google-java-format.version>1.28.0</google-java-format.version>
+    </properties>
+
+    <dependencies>
+        <!-- Spring MVC + embedded Tomcat + Jackson 3 (Boot 4 name for the old starter-web) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+        <!-- Bean Validation: the generated models carry @NotNull / @Pattern / @Size from the spec -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <!-- Health endpoint (GET /health) plus liveness/readiness probes -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- JUnit, AssertJ, Mockito -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <!--
+              jsonassert pulls in com.vaadin.external.google:android-json, an unmaintained 2013
+              repackage of org.json with no depth limit and no fix (CVE-2026-110974). Exclude it and
+              substitute the real org.json below, which caps nesting depth. Same org.json.* API.
+            -->
+            <exclusions>
+                <exclusion>
+                    <groupId>com.vaadin.external.google</groupId>
+                    <artifactId>android-json</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Replacement for the excluded android-json (see above); provides the org.json.* classes -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20260814</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- @WebMvcTest slice and MockMvc (a separate module since Boot 4) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Compile-time only: version managed by Spring Boot, excluded from the runnable jar below -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>dish-suitability</finalName>
+        <plugins>
+            <!--
+              Register Lombok as an annotation processor explicitly. Since JDK 23, javac no longer
+              runs annotation processors found on the classpath unless told to, so on Java 25
+              Lombok must be on the processor path or no code would be generated.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <!--
+              API-first: the OpenAPI spec is the source of truth. At build time the generator
+              creates the API interface and the request/response models into
+              target/generated-sources (never committed). The controller implements the interface,
+              so code and contract cannot drift apart.
+            -->
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>${openapi-generator.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-dish-suitability-api</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/resources/static/openapi/dish-suitability.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <apiPackage>se.nexus.dishsuitability.api.generated</apiPackage>
+                            <modelPackage>se.nexus.dishsuitability.api.generated.model</modelPackage>
+                            <generateSupportingFiles>false</generateSupportingFiles>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
+                            <generateApiDocumentation>false</generateApiDocumentation>
+                            <generateModelDocumentation>false</generateModelDocumentation>
+                            <configOptions>
+                                <!-- Only the interface; we write the implementation -->
+                                <interfaceOnly>true</interfaceOnly>
+                                <skipDefaultInterface>true</skipDefaultInterface>
+                                <useTags>true</useTags>
+                                <!-- Spring Boot 4: Jakarta EE + Jackson 3 -->
+                                <useSpringBoot4>true</useSpringBoot4>
+                                <useJackson3>true</useJackson3>
+                                <!-- Generate @NotNull/@Pattern/... from the spec -->
+                                <useBeanValidation>true</useBeanValidation>
+                                <!-- No extra runtime dependencies in generated code -->
+                                <openApiNullable>false</openApiNullable>
+                                <documentationProvider>none</documentationProvider>
+                                <annotationLibrary>none</annotationLibrary>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Lombok is only needed at compile time; keep it out of the runnable jar -->
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Spotless: enforce Google Java Format on all source. `check` binds to the build
+                 and fails on violations; run `mvn spotless:apply` to auto-format. -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <java>
+                        <googleJavaFormat>
+                            <version>${google-java-format.version}</version>
+                            <style>GOOGLE</style>
+                            <reflowLongStrings>true</reflowLongStrings>
+                        </googleJavaFormat>
+                        <removeUnusedImports/>
+                        <formatAnnotations/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Integration tests (*IT.java) run in the `verify` phase, unit tests in `test` -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
