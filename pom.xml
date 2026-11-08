@@ -29,7 +29,7 @@
              validation bypass via 0x1A) in json-smart <= 2.6.0. -->
         <json-smart.version>2.6.1</json-smart.version>
         <openapi-generator.version>7.27.0</openapi-generator.version>
-        <spotless.version>2.46.1</spotless.version>
+        <spotless.version>3.11.0</spotless.version>
         <google-java-format.version>1.28.0</google-java-format.version>
     </properties>
 
