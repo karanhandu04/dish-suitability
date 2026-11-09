@@ -25,7 +25,7 @@ jobs:
       # Generate code from the OpenAPI spec, compile, unit tests (Surefire), integration tests
       # (Failsafe), formatting check (Spotless) and packaging
       - name: Build and run all checks
-        run: mvn -B verify
+        run: ./mvnw -B verify
 
       - name: Upload test reports
         if: failure()
