@@ -22,14 +22,20 @@ creates a self-signed certificate for `localhost` in `./certs` (git-ignored); la
 it. The demo API key is `local-dev-key`; set your own with
 `APP_SECURITY_API_KEYS=my-key docker-compose up`.
 
-### Locally with Maven (Java 25)
+### Locally (Java 25, no Maven installation needed)
+
+The project includes the Maven Wrapper, which downloads the pinned Maven version
+(`.mvn/wrapper/maven-wrapper.properties`) on first use.
 
 ```bash
-mvn verify                                          # generate API code, compile, all tests, format check
-mvn spring-boot:run -Dspring-boot.run.profiles=local  # plain HTTP on 8080, API key "local-dev-key"
+./mvnw verify                                            # generate API code, compile, all tests, format check
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local  # plain HTTP on 8080, API key "local-dev-key"
 ```
 
-`mvn spotless:apply` formats the code (Google Java Format); the build fails on unformatted code.
+On Windows use `mvnw.cmd`; in PowerShell, quote `-D` arguments:
+`.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"`.
+
+`./mvnw spotless:apply` formats the code (Google Java Format); the build fails on unformatted code.
 
 ### Try it
 
@@ -305,14 +311,14 @@ Notable tests:
 - **Auth bypass attempts**: look-alike paths (`/healthz`, `/health/../dish-suitability`,
   `/openapi/%2e%2e/...`) are never treated as public.
 
-Unit tests run with `mvn test` (Surefire). Integration tests (`*IT`) run with `mvn verify`
+Unit tests run with `./mvnw test` (Surefire). Integration tests (`*IT`) run with `./mvnw verify`
 (Failsafe), so the fast feedback loop stays fast.
 
 ---
 
 ## CI/CD flow
 
-A working CI pipeline is included in `.github/workflows/ci.yml`: it runs `mvn verify`, then
+A working CI pipeline is included in `.github/workflows/ci.yml`: it runs `./mvnw verify`, then
 starts the stack with `docker compose up` exactly as a reviewer would, and smoke-tests it over
 HTTPS (health, a scoring call, and a 401 without a key). The full flow I would use to deploy
 this service:
@@ -334,7 +340,7 @@ this service:
 ```
 
 **Continuous integration (on every pull request)**
-1. `mvn verify`: generate code from the spec (an invalid spec fails the build), compile, unit
+1. `./mvnw verify`: generate code from the spec (an invalid spec fails the build), compile, unit
    tests, integration tests, formatting check.
 2. Quality gates: Dependabot for dependency, base-image and CI-action updates (included), plus
    static analysis (e.g. SonarQube) and an image scan (e.g. Trivy) to add.
@@ -368,8 +374,9 @@ and tagged per commit, a rollback is a one-line change and takes seconds.
   `/health/liveness` and `/health/readiness`.
 - **Graceful shutdown:** in-flight requests complete before the application stops; the
   container runs Java as PID 1 so it receives `SIGTERM`.
-- **Container:** multi-stage build, JRE-only Alpine runtime image, non-root user, heap sized
-  from the container memory limit (`MaxRAMPercentage`).
+- **Container:** multi-stage build (JDK stage builds with the Maven Wrapper, so the image uses
+  the same Maven version as CI), JRE-only Alpine runtime image, non-root user, heap sized from
+  the container memory limit (`MaxRAMPercentage`).
 - **Configuration** via environment variables:
 
 | Variable | Purpose |
